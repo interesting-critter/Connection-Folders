@@ -1,5 +1,6 @@
-import { useMemo, useCallback, useEffect, useState } from 'react'
+import * as React from 'react'
 import { useStore } from '@/store'
+import { useMemo, useState, useCallback, useEffect } from 'react'
 import { getProfileFolder, mergeFolderNames, groupProfilesByFolder, includeEmptyFolders } from '../folders/model'
 import { ConnectionsPicker } from '@/components/connections-picker/ConnectionsPicker'
 import { FOLDER_STYLES, BADGE_STYLES } from '../styles'
@@ -15,7 +16,7 @@ import { FOLDER_STYLES, BADGE_STYLES } from '../styles'
  */
 export function ConnectionPickerWithFolders(
   props: Record<string, unknown>,
-): JSX.Element {
+): React.ReactElement {
   const profiles = useStore((s) => s.profiles as Array<{ id: string; name: string; provider?: string; metadata?: Record<string, unknown> | null; is_default?: boolean }>)
   const activeProfileId = useStore((s) => s.activeProfileId)
   const setActiveProfile = useStore((s) => s.setActiveProfile)
