@@ -97,7 +97,11 @@ function extractOrder(body: unknown): ConnectionsOrder {
 }
 
 export class ConnectionFolderApi {
-  constructor(private readonly fetchImpl: typeof fetch = globalThis.fetch) {}
+  private readonly fetchImpl: typeof fetch
+
+  constructor(fetchImpl: typeof fetch = globalThis.fetch) {
+    this.fetchImpl = (...args) => fetchImpl.call(globalThis, ...args)
+  }
 
   /**
    * Read the persisted drawer order.
