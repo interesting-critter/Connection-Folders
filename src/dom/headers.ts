@@ -55,20 +55,37 @@ export const CF_DELETE_CLASS = 'cf-folder-delete'
 export const CF_DROP_TARGET_CLASS = 'cf-folder-drop-target'
 export const FOLDER_ATTR = 'data-cf-folder'
 
-const CHEVRON_GLYPH = '›'
-const RENAME_GLYPH = '✎'
-const DELETE_GLYPH = '🗑'
+const RENAME_SVG_PATH = 'M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z'
+const DELETE_SVG_PATH = 'M10 11v6M14 11v6M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2'
 
-function actionButton(doc: Document, glyph: string, label: string, extra: string, onClick: () => void): HTMLButtonElement {
+function buildSvgButton(doc: Document, pathData: string, label: string, extraClass: string, onClick: () => void): HTMLButtonElement {
   const button = doc.createElement('button')
   button.type = 'button'
-  button.className = `${CF_ACTION_CLASS} ${extra}`.trim()
-  button.textContent = glyph
+  button.className = `${CF_ACTION_CLASS} ${extraClass}`.trim()
   button.title = label
   button.setAttribute('aria-label', label)
+  button.style.color = 'var(--lumiverse-icon)'
+  button.style.display = 'inline-flex'
+  button.style.alignItems = 'center'
+  button.style.justifyContent = 'center'
+
+  const svg = doc.createElementNS('http://www.w3.org/2000/svg', 'svg')
+  svg.setAttribute('width', '12')
+  svg.setAttribute('height', '12')
+  svg.setAttribute('viewBox', '0 0 24 24')
+  svg.setAttribute('fill', 'none')
+  svg.setAttribute('stroke', 'currentColor')
+  svg.setAttribute('stroke-width', '2')
+  svg.setAttribute('stroke-linecap', 'round')
+  svg.setAttribute('stroke-linejoin', 'round')
+  svg.style.pointerEvents = 'none'
+
+  const path = doc.createElementNS('http://www.w3.org/2000/svg', 'path')
+  path.setAttribute('d', pathData)
+  svg.appendChild(path)
+
+  button.appendChild(svg)
   button.addEventListener('click', (event) => {
-    // Outside the toggle button already, but a drag/pointer gesture can still
-    // bubble in from the row wrapper on some browsers.
     event.stopPropagation()
     onClick()
   })
@@ -115,10 +132,10 @@ export function createFolderHeader(options: FolderHeaderOptions): HTMLElement {
   row.appendChild(toggle)
 
   if (options.onRename) {
-    row.appendChild(actionButton(doc, RENAME_GLYPH, `Rename ${options.label}`, '', options.onRename))
+    row.appendChild(buildSvgButton(doc, RENAME_SVG_PATH, `Rename ${options.label}`, '', options.onRename ?? (() => {})))
   }
   if (options.onDelete) {
-    row.appendChild(actionButton(doc, DELETE_GLYPH, `Delete ${options.label}`, CF_DELETE_CLASS, options.onDelete))
+    row.appendChild(buildSvgButton(doc, DELETE_SVG_PATH, `Delete ${options.label}`, CF_DELETE_CLASS, options.onDelete ?? (() => {})))
   }
 
   return row
