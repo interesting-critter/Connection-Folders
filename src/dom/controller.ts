@@ -197,17 +197,13 @@ export class FolderController {
       optionsByFolder.set(options.folder, options)
     }
 
-    // Build profile-index → native-row mapping: since profiles.current and
-    // native rows are both in the host's ordered sequence, they align 1:1 by index.
-    const profileIndexToRowIndex: number[] = []
-    for (let i = 0; i < this.profiles.current.length; i += 1) {
-      profileIndexToRowIndex[i] = i
-    }
-
-    // Rows with no corresponding profile (React added a placeholder) keep
-    // their index; extra rows beyond profile count are appended after groups.
-    for (let i = this.profiles.current.length; i < rows.length; i += 1) {
-      profileIndexToRowIndex[i] = i
+    // Build profile-id → native-row mapping. Native rows carry no id, but the
+    // host renders them in the same sequence as `profiles.current` (the ordered
+    // array from `resolveOrder`). Index alignment is the only reliable mapping.
+    const profileIdToRowIndex = new Map<string, number>()
+    for (let i = 0; i < Math.min(this.profiles.current.length, rows.length); i += 1) {
+      const id = this.profiles.current[i]?.id
+      if (id) profileIdToRowIndex.set(id, i)
     }
 
     const flattened: OrderedItem[] = []
@@ -233,8 +229,8 @@ export class FolderController {
 
       const collapsed = this.collapsedFolders.has(collapseKey(group.folder))
       for (const profile of group.profiles) {
-        const profileIndex = this.profiles.current.indexOf(profile)
-        const rowIndex = profileIndexToRowIndex[profileIndex]
+        const profileId = profile.id
+        const rowIndex = profileIdToRowIndex.get(profileId)
         const row = rowIndex !== undefined ? rows[rowIndex] : undefined
         if (row) {
           flattened.push({ el: row, collapsed })
@@ -248,15 +244,19 @@ export class FolderController {
     // Any native row with no group (React placeholder, or profile without
     // a folder assignment that wasn't grouped) needs a slot so it isn't left
     // with a stale order from a previous pass.
-    const groupedProfileIndices = new Set<number>()
+    const groupedProfileIds = new Set<string>()
     for (const group of groups) {
       for (const profile of group.profiles) {
-        const idx = this.profiles.current.indexOf(profile)
-        if (idx >= 0) groupedProfileIndices.add(idx)
+        if (profile.id) groupedProfileIds.add(profile.id)
       }
     }
     for (let i = 0; i < rows.length; i += 1) {
-      if (!groupedProfileIndices.has(i)) {
+      // A row is ungrouped if its matching profile (by index) is not in any group.
+      // Since rows map 1:1 to profiles by index, a row at index i is ungrouped
+      // when profile i is not grouped.
+      const profileAtIndex = this.profiles.current[i]
+      const isGrouped = profileAtIndex && profileAtIndex.id && groupedProfileIds.has(profileAtIndex.id)
+      if (!isGrouped) {
         flattened.push({ el: rows[i], collapsed: false })
       }
     }
