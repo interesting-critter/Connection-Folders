@@ -35,6 +35,11 @@ import {
   type FolderHeaderOptions,
 } from './headers'
 import { createReconciler, type ReconcileHandle } from './reconcile'
+import { UNCATEGORIZED_KEY } from '../folders/model'
+
+function collapseKey(folder: string): string {
+  return folder || UNCATEGORIZED_KEY
+}
 
 export interface ControllerDeps {
   /** Ordered exactly as the host rendered its rows (ConnectionManager.tsx). */
@@ -122,6 +127,7 @@ export class FolderController {
   /** Replace the ordered profile list (the host's `orderedProfiles`). */
   setProfiles(profiles: ConnectionProfile[]): void {
     this.profiles.current = profiles ?? []
+    this.deps.profiles = this.profiles.current
     this.requestReconcile()
   }
 
@@ -132,12 +138,13 @@ export class FolderController {
   }
 
   isCollapsed(folder: string): boolean {
-    return this.collapsedFolders.has(folder)
+    return this.collapsedFolders.has(collapseKey(folder))
   }
 
   toggleCollapsed(folder: string): void {
-    if (this.collapsedFolders.has(folder)) this.collapsedFolders.delete(folder)
-    else this.collapsedFolders.add(folder)
+    const key = collapseKey(folder)
+    if (this.collapsedFolders.has(key)) this.collapsedFolders.delete(key)
+    else this.collapsedFolders.add(key)
     this.reconcile()
   }
 
@@ -218,7 +225,7 @@ export class FolderController {
         existing.delete(group.folder)
       }
 
-      const collapsed = this.collapsedFolders.has(group.folder)
+      const collapsed = this.collapsedFolders.has(collapseKey(group.folder))
       for (const _profile of group.profiles) {
         const row = rows[cursor]
         cursor += 1
