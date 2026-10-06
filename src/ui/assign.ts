@@ -70,6 +70,28 @@ export async function openFolderAssignModal(
 
   const root = document.createElement('div')
   root.className = 'cf-root'
+  root.style.display = 'flex'
+  root.style.gap = '8px'
+
+  // Symmetrical 420px-tall placeholder bars at each far edge of the modal body.
+  const leftBar = document.createElement('div')
+  leftBar.style.width = '12px'
+  leftBar.style.height = '420px'
+  leftBar.style.background = '#000'
+  leftBar.style.flexShrink = '0'
+  root.appendChild(leftBar)
+
+  const content = document.createElement('div')
+  content.style.flex = '1'
+  root.appendChild(content)
+
+  const rightBar = document.createElement('div')
+  rightBar.style.width = '12px'
+  rightBar.style.height = '420px'
+  rightBar.style.background = '#000'
+  rightBar.style.flexShrink = '0'
+  root.appendChild(rightBar)
+
   modal.root.appendChild(root)
 
   const currentFolder = getProfileFolder(profile)
@@ -79,17 +101,17 @@ export async function openFolderAssignModal(
   hint.textContent = currentFolder
     ? `Currently in “${currentFolder}”. Pick another folder, or create a new one.`
     : 'This profile has no folder. Pick one, or create a new one.'
-  root.appendChild(hint)
+  content.appendChild(hint)
 
   const target = document.createElement('div')
   target.className = 'cf-folder-assign-target'
-  root.appendChild(target)
+  content.appendChild(target)
 
   const error = document.createElement('p')
   error.className = 'cf-unsupported-banner-body cf-assign-error'
   error.setAttribute('role', 'status')
   error.hidden = true
-  root.appendChild(error)
+  content.appendChild(error)
 
   function showError(cause: unknown): void {
     error.hidden = false
