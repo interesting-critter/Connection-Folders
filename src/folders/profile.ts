@@ -70,7 +70,10 @@ export function resolveOrder(
   }
 
   const missing = profiles.filter((profile) => !seen.has(profile.id))
-  return [...ordered, ...missing]
+  // New profiles created by the host appear at the top of the native list,
+  // so missing profiles are prepended rather than appended — this keeps the
+  // index-based row↔profile mapping in sync with the host's visual order.
+  return [...missing, ...ordered]
 }
 
 /**
