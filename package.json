@@ -1,0 +1,17 @@
+{
+  "name": "connection-folders",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bun build src/frontend.ts --outfile dist/frontend.js --target browser",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "check": "bun run typecheck && bun run build && bun test"
+  },
+  "devDependencies": {
+    "happy-dom": "20.14.5",
+    "lumiverse-spindle-types": "0.6.31",
+    "typescript": "5.9.3"
+  }
+}

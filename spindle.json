@@ -1,0 +1,11 @@
+{
+  "version": "0.1.0",
+  "name": "Connection Folders",
+  "identifier": "connection_folders",
+  "author": "critter",
+  "github": "https://github.com/interesting-critter/Connection-Folders",
+  "homepage": "https://github.com/interesting-critter/Connection-Folders",
+  "description": "Adds collapsible folders to the Connections tab, making connection profiles easier to sort.",
+  "permissions": [],
+  "entry_frontend": "dist/frontend.js"
+}
