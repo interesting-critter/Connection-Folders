@@ -64,7 +64,8 @@ export async function openFolderAssignModal(
     // Matches the native edit form's "Field — <name>" title idiom.
     title: `Folder — ${profile.name}`,
     width: 380,
-    maxHeight: 420,
+    minHeight: 420,
+    maxHeight: 1280,
   })
 
   const root = document.createElement('div')
