@@ -197,11 +197,20 @@ export class FolderController {
       optionsByFolder.set(options.folder, options)
     }
 
-    // Rows are consumed in group order: groups are sorted, and each group's
-    // profiles keep the host's relative order, so a running cursor over `rows`
-    // reproduces the host's own ordering exactly.
+    // Build profile-index → native-row mapping: since profiles.current and
+    // native rows are both in the host's ordered sequence, they align 1:1 by index.
+    const profileIndexToRowIndex: number[] = []
+    for (let i = 0; i < this.profiles.current.length; i += 1) {
+      profileIndexToRowIndex[i] = i
+    }
+
+    // Rows with no corresponding profile (React added a placeholder) keep
+    // their index; extra rows beyond profile count are appended after groups.
+    for (let i = this.profiles.current.length; i < rows.length; i += 1) {
+      profileIndexToRowIndex[i] = i
+    }
+
     const flattened: OrderedItem[] = []
-    let cursor = 0
 
     for (const group of groups) {
       const options = optionsByFolder.get(group.folder)
@@ -217,30 +226,39 @@ export class FolderController {
           })
         }
         header.setAttribute(FOLDER_ATTR, group.folder)
-        // Insert as a direct child; DOM position is irrelevant because `order`
-        // decides the visual sequence, but appending keeps React's own
-        // reconciliation of the rows unobstructed.
         host.list.appendChild(header)
         flattened.push({ el: header, collapsed: false })
         existing.delete(group.folder)
       }
 
       const collapsed = this.collapsedFolders.has(collapseKey(group.folder))
-      for (const _profile of group.profiles) {
-        const row = rows[cursor]
-        cursor += 1
-        if (row) flattened.push({ el: row, collapsed })
+      for (const profile of group.profiles) {
+        const profileIndex = this.profiles.current.indexOf(profile)
+        const rowIndex = profileIndexToRowIndex[profileIndex]
+        const row = rowIndex !== undefined ? rows[rowIndex] : undefined
+        if (row) {
+          flattened.push({ el: row, collapsed })
+        }
       }
     }
 
-    // Any header we created but did not place (a `render` that omits a group)
-    // must not linger.
+    // Any leftover header not placed (render omitted a group) must not linger.
     for (const leftover of existing.values()) leftover.remove()
 
-    // Rows with no group (React added one we have no profile for) still need a
-    // slot so they are not left with a stale order from a previous pass.
-    for (let i = cursor; i < rows.length; i += 1) {
-      flattened.push({ el: rows[i], collapsed: false })
+    // Any native row with no group (React placeholder, or profile without
+    // a folder assignment that wasn't grouped) needs a slot so it isn't left
+    // with a stale order from a previous pass.
+    const groupedProfileIndices = new Set<number>()
+    for (const group of groups) {
+      for (const profile of group.profiles) {
+        const idx = this.profiles.current.indexOf(profile)
+        if (idx >= 0) groupedProfileIndices.add(idx)
+      }
+    }
+    for (let i = 0; i < rows.length; i += 1) {
+      if (!groupedProfileIndices.has(i)) {
+        flattened.push({ el: rows[i], collapsed: false })
+      }
     }
 
     assignOrder(flattened)
