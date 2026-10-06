@@ -172,14 +172,70 @@ export class FolderController {
     if (!host) return
 
     const rows = locateRows(host.list)
-    const groups = includeEmptyFolders(
-      groupProfilesByFolder(this.profiles.current),
-      this.folderNames.current,
-      this.profiles.current,
-    )
+
+    // Derive folder for each native row by index alignment with the ordered
+    // profile array. This avoids any divergence when a new profile is created
+    // and the native list puts it at a different visual position than our
+    // ordered array (e.g. native prepends new profiles, our order appends them).
+    const rowFolders: string[] = []
+    for (let i = 0; i < rows.length; i += 1) {
+      const profile = i < this.profiles.current.length ? this.profiles.current[i] : null
+      rowFolders[i] = profile ? getProfileFolder(profile) : ''
+    }
+
+    // Build groups directly from native rows, preserving the host's relative row
+    // order: alphabetical folder sort, but each folder's members keep their
+    // original native sequence (not the profile array sequence).
+    const folderOrder: string[] = []
+    const folderRows: Map<string, number[]> = new Map()
+    const folderLabels: Map<string, string> = new Map()
+
+    for (let i = 0; i < rows.length; i += 1) {
+      const folder = rowFolders[i] || ''
+      const key = collapseKey(folder)
+      const label = folder || 'Uncategorized'
+      if (!folderLabels.has(key)) {
+        folderLabels.set(key, label)
+        folderOrder.push(key)
+      }
+      if (!folderRows.has(key)) folderRows.set(key, [])
+      folderRows.get(key)!.push(i)
+    }
+
+    // Sort folder keys alphabetically by label (matching native folder order),
+    // with Uncategorized last.
+    folderOrder.sort((a, b) => {
+      const labelA = folderLabels.get(a) ?? ''
+      const labelB = folderLabels.get(b) ?? ''
+      const aUncat = a === UNCATEGORIZED_KEY
+      const bUncat = b === UNCATEGORIZED_KEY
+      if (aUncat && !bUncat) return 1
+      if (!aUncat && bUncat) return -1
+      return (labelA || '').localeCompare(labelB || '')
+    })
+
+    const groups: FolderGroup<ConnectionProfile>[] = []
+    for (const key of folderOrder) {
+      const label = folderLabels.get(key) ?? ''
+      const folderName = key === UNCATEGORIZED_KEY ? '' : label
+      const profileIdsInRowOrder: string[] = []
+      for (const rowIndex of (folderRows.get(key) ?? [])) {
+        const profile = rowIndex < this.profiles.current.length ? this.profiles.current[rowIndex] : null
+        if (profile) profileIdsInRowOrder.push(profile.id)
+      }
+      // Resolve profiles for this group by matching ids back to the ordered array.
+      const byId = new Map<string, ConnectionProfile>()
+      for (const p of this.profiles.current) byId.set(p.id, p)
+      const groupProfiles: ConnectionProfile[] = []
+      for (const id of profileIdsInRowOrder) {
+        const p = byId.get(id)
+        if (p) groupProfiles.push(p)
+      }
+      groups.push({ folder: folderName, profiles: groupProfiles })
+    }
 
     // Drop headers for folders that no longer exist.
-    const wanted = new Set(groups.map((group) => group.folder))
+    const wanted = new Set(groups.map((g) => collapseKey(g.folder)))
     const existing = new Map<string, HTMLElement>()
     for (const child of Array.from(host.list.children)) {
       const el = child as HTMLElement
@@ -197,21 +253,14 @@ export class FolderController {
       optionsByFolder.set(options.folder, options)
     }
 
-    // Build profile-id → native-row mapping. Native rows carry no id, but the
-    // host renders them in the same sequence as `profiles.current` (the ordered
-    // array from `resolveOrder`). Index alignment is the only reliable mapping.
-    const profileIdToRowIndex = new Map<string, number>()
-    for (let i = 0; i < Math.min(this.profiles.current.length, rows.length); i += 1) {
-      const id = this.profiles.current[i]?.id
-      if (id) profileIdToRowIndex.set(id, i)
-    }
-
+    // Build the flattened [header, row, ...] sequence using native row order.
     const flattened: OrderedItem[] = []
-
-    for (const group of groups) {
+    for (const key of folderOrder) {
+      const group = groups.find((g) => collapseKey(g.folder) === key)
+      if (!group) continue
       const options = optionsByFolder.get(group.folder)
       if (options) {
-        let header = existing.get(group.folder)
+        let header = existing.get(key)
         if (!header) {
           header = createFolderHeader(options)
         } else {
@@ -221,42 +270,32 @@ export class FolderController {
             label: options.label,
           })
         }
-        header.setAttribute(FOLDER_ATTR, group.folder)
+        header.setAttribute(FOLDER_ATTR, key === UNCATEGORIZED_KEY ? '' : group.folder)
         host.list.appendChild(header)
         flattened.push({ el: header, collapsed: false })
-        existing.delete(group.folder)
+        existing.delete(key)
       }
 
-      const collapsed = this.collapsedFolders.has(collapseKey(group.folder))
-      for (const profile of group.profiles) {
-        const profileId = profile.id
-        const rowIndex = profileIdToRowIndex.get(profileId)
-        const row = rowIndex !== undefined ? rows[rowIndex] : undefined
-        if (row) {
-          flattened.push({ el: row, collapsed })
+      const collapsed = this.collapsedFolders.has(key)
+      const rowIndices = folderRows.get(key) ?? []
+      for (const rowIndex of rowIndices) {
+        if (rowIndex < rows.length) {
+          flattened.push({ el: rows[rowIndex], collapsed })
         }
       }
     }
 
-    // Any leftover header not placed (render omitted a group) must not linger.
+    // Any leftover header not placed must not linger.
     for (const leftover of existing.values()) leftover.remove()
 
-    // Any native row with no group (React placeholder, or profile without
-    // a folder assignment that wasn't grouped) needs a slot so it isn't left
-    // with a stale order from a previous pass.
-    const groupedProfileIds = new Set<string>()
-    for (const group of groups) {
-      for (const profile of group.profiles) {
-        if (profile.id) groupedProfileIds.add(profile.id)
-      }
+    // Any native row not covered by any folder group needs a slot.
+    const coveredRowIndices = new Set<number>()
+    for (const key of folderOrder) {
+      const indices = folderRows.get(key) ?? []
+      for (const idx of indices) coveredRowIndices.add(idx)
     }
     for (let i = 0; i < rows.length; i += 1) {
-      // A row is ungrouped if its matching profile (by index) is not in any group.
-      // Since rows map 1:1 to profiles by index, a row at index i is ungrouped
-      // when profile i is not grouped.
-      const profileAtIndex = this.profiles.current[i]
-      const isGrouped = profileAtIndex && profileAtIndex.id && groupedProfileIds.has(profileAtIndex.id)
-      if (!isGrouped) {
+      if (!coveredRowIndices.has(i)) {
         flattened.push({ el: rows[i], collapsed: false })
       }
     }
