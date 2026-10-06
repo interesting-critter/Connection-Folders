@@ -37,6 +37,7 @@ import { ACTION_STYLES, createNewFolderButton } from './ui/actions'
 import { ASSIGN_STYLES, openFolderAssignModal } from './ui/assign'
 import { CRUD_STYLES, confirmDeleteFolder, promptCreateFolder, promptRenameFolder } from './ui/crud'
 import { RowAffixManager } from './ui/row-affix'
+import { ConnectionPickerWithFolders } from './ui/connection-picker-override'
 import type { ConnectionProfile, ScopedDom } from './types'
 
 /** Drawer tab we attach to. Matches the host's own built-in tab id. */
