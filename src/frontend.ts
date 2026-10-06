@@ -30,7 +30,7 @@ import { FolderController } from './dom/controller'
 import { FOLDER_ATTR, type FolderHeaderOptions } from './dom/headers'
 import { locateList, locateRows, locateTabRoot } from './dom/locate'
 import { UNCATEGORIZED_KEY, getProfileFolder, mergeFolderNames, setProfileFolderMetadata, type FolderGroup } from './folders/model'
-import { ConnectionFolderApi, resolveOrder, migrateProfilesFolder, clearProfilesFolder } from './folders/profile'
+import { ConnectionFolderApi, resolveOrder } from './folders/profile'
 import { FolderNameStore, type FolderNameStorage } from './folders/store'
 import { BADGE_STYLES, FOLDER_STYLES } from './styles'
 import { ACTION_STYLES, createNewFolderButton } from './ui/actions'
@@ -42,9 +42,9 @@ import type { ConnectionProfile, ScopedDom } from './types'
 /** Drawer tab we attach to. Matches the host's own built-in tab id. */
 const CONNECTIONS_TAB_ID = 'connections'
 
-/** Settings keys. BARE — the host prepends `spindle:<identifier>:` itself. */
-const FOLDER_NAMES_KEY = 'connectionFolders'
-const COLLAPSED_FOLDERS_KEY = 'collapsedFolders'
+/** Settings keys. Formatted as module:key for the Spindle settings bridge. */
+const FOLDER_NAMES_KEY = 'connection_folders:connectionFolders'
+const COLLAPSED_FOLDERS_KEY = 'connection_folders:collapsedFolders'
 
 /** Label for the bucket that means "this profile has no folder". */
 const UNCATEGORIZED_LABEL = 'Uncategorized'
