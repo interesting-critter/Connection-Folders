@@ -132,6 +132,24 @@ export async function setup(ctx: SpindleFrontendContext): Promise<() => void> {
    */
   const removeStyle = scopedDom.addStyle(ALL_STYLES, { scope: 'global' })
 
+  /* ── 1.5. Picker component override ─────────────────────────────────────── */
+
+  /**
+   * Register the ConnectionsPicker component override so the chat composer
+   * picker shows folder-grouped profiles. Uses the sanctioned
+   * `registerComponentOverride` API (host key 'ConnectionsPicker').
+   */
+  // Picker override — registered through the host's override mechanism.
+  // The `registerComponentOverride` call is typed differently at runtime
+  // (`loader.ts:1596`) than in the published SpindleFrontendContext types,
+  // so we suppress the compile-time mismatch; the build (`bun build`) passes.
+  const pickerOverrideHandle = (ctx.ui as unknown as { registerComponentOverride(options: { host: string; mode: string; component: unknown }): { destroy(): void } }).registerComponentOverride({
+    host: 'ConnectionsPicker',
+    mode: 'replace',
+    component: ConnectionPickerWithFolders,
+  })
+  disposables.push(() => pickerOverrideHandle.destroy())
+
   /* ── 2. Folder-name persistence ────────────────────────────────────────── */
 
   const settings = ctx.settings
