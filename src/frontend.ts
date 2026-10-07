@@ -412,6 +412,18 @@ export async function setup(ctx: SpindleFrontendContext): Promise<() => void> {
   let newFolderSlot: Element | null = null
 
   /**
+   * Drop the "New folder" button and forget it.
+   *
+   * `controller.dispose()` strips folder headers but NOT this slot, so without
+   * an explicit teardown the slot lingers in Lumiverse's own `.createActions`
+   * row and `injectNewFolderButton` stacks a new one on every reopen.
+   */
+  function clearNewFolderSlot(): void {
+    if (newFolderSlot?.isConnected) newFolderSlot.remove()
+    newFolderSlot = null
+  }
+
+  /**
    * Lumiverse's own create-actions row (`.createActions`), located STRUCTURALLY:
    * it is a flex row of siblings, and the actions div is the first sibling
    * before the list that holds a button. Nothing here references a hashed
@@ -433,6 +445,17 @@ export async function setup(ctx: SpindleFrontendContext): Promise<() => void> {
    * path returns quietly and folder grouping carries on without it.
    */
   function injectNewFolderButton(list: HTMLElement): void {
+    // Remove any slot left behind by a previous mount: closing the drawer
+    // disposes the controller (which only strips folder headers, not this
+    // slot), so reopening would otherwise stack a second button forever.
+    //
+    // NOTE: the slot lives in `.createActions`, which is a SIBLING of `list`
+    // (see `locateCreateActions`), so it must be swept from the parent — a
+    // `list.querySelectorAll()` query would never find it.
+    const sweepRoot = list.parentElement ?? list
+    for (const stale of Array.from(sweepRoot.querySelectorAll('.cf-inline-slot'))) {
+      stale.remove()
+    }
     if (newFolderSlot?.isConnected) return
 
     const actions = locateCreateActions(list)
@@ -594,7 +617,7 @@ export async function setup(ctx: SpindleFrontendContext): Promise<() => void> {
         affix?.dispose()
         affix = null
         controller.dispose()
-        newFolderSlot = null
+        clearNewFolderSlot()
         return false
       }
       scheduleSync()
@@ -667,7 +690,7 @@ export async function setup(ctx: SpindleFrontendContext): Promise<() => void> {
           affix?.dispose()
           affix = null
           controller.dispose()
-          newFolderSlot = null
+          clearNewFolderSlot()
         }
       }
     }),
@@ -697,11 +720,12 @@ export async function setup(ctx: SpindleFrontendContext): Promise<() => void> {
     affix?.dispose()
     affix = null
     controller.dispose()
+    clearNewFolderSlot()
     mounted = false
 
-    // `ctx.dom.cleanup()` retires every injection (headers were NOT injected —
-    // the controller owns those — plus the banner and the button slot).
-    newFolderSlot = null
+    // `ctx.dom.cleanup()` retires every injection the host still holds. Folder
+    // headers are owned by the controller and removed above; the "New folder"
+    // slot is owned here and removed by `clearNewFolderSlot()`.
     banner = null
     removeStyle()
     ctx.dom.cleanup()
