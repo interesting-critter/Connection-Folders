@@ -37,7 +37,7 @@ import { ACTION_STYLES, createNewFolderButton } from './ui/actions'
 import { ASSIGN_STYLES, openFolderAssignModal } from './ui/assign'
 import { CRUD_STYLES, confirmDeleteFolder, promptCreateFolder, promptRenameFolder } from './ui/crud'
 import { RowAffixManager } from './ui/row-affix'
-import { ConnectionPickerWithFolders } from './ui/connection-picker-override'
+import { InputFolderController } from './input/popover-folders'
 import type { ConnectionProfile, ScopedDom } from './types'
 
 /** Drawer tab we attach to. Matches the host's own built-in tab id. */
@@ -131,24 +131,6 @@ export async function setup(ctx: SpindleFrontendContext): Promise<() => void> {
    * selector in every sheet already carries.
    */
   const removeStyle = scopedDom.addStyle(ALL_STYLES, { scope: 'global' })
-
-  /* ── 1.5. Picker component override ─────────────────────────────────────── */
-
-  /**
-   * Register the ConnectionsPicker component override so the chat composer
-   * picker shows folder-grouped profiles. Uses the sanctioned
-   * `registerComponentOverride` API (host key 'ConnectionsPicker').
-   */
-  // Picker override — registered through the host's override mechanism.
-  // The `registerComponentOverride` call is typed differently at runtime
-  // (`loader.ts:1596`) than in the published SpindleFrontendContext types,
-  // so we suppress the compile-time mismatch; the build (`bun build`) passes.
-  const pickerOverrideHandle = (ctx.ui as unknown as { registerComponentOverride(options: { host: string; mode: string; component: unknown }): { destroy(): void } }).registerComponentOverride({
-    host: 'ConnectionsPicker',
-    mode: 'replace',
-    component: ConnectionPickerWithFolders,
-  })
-  disposables.push(() => pickerOverrideHandle.destroy())
 
   /* ── 2. Folder-name persistence ────────────────────────────────────────── */
 
@@ -282,7 +264,30 @@ export async function setup(ctx: SpindleFrontendContext): Promise<() => void> {
     else explicitCollapsed.delete(key)
     persistCollapsed()
     scheduleSync()
+    // Toggling from the drawer header while the composer popover is open must
+    // update it too — one collapse state, two surfaces.
+    inputFolders.refresh()
   }
+
+  /**
+   * Second surface: the transient `connections` popover in the chat composer
+   * bar. Declared here (rather than beside the rest of the lifecycle) because
+   * `applyProfiles` and `refreshFolderNames` already need to refresh it.
+   *
+   * It shares this module's folder names and collapse state, so the popover
+   * and the drawer tab can never disagree about a folder or its open state.
+   * Read-only there — rename/delete stay in the drawer tab.
+   */
+  const inputFolders = new InputFolderController({
+    listProfiles: () => orderedProfiles,
+    folderNames: () => mergeFolderNames(store.getNames(), orderedProfiles),
+    collapsed: () => explicitCollapsed,
+    onToggle: (key) => {
+      toggleCollapsed(key)
+    },
+  })
+  inputFolders.start()
+  disposables.push(() => inputFolders.dispose())
 
   /* ── 5. Folder name CRUD ──────────────────────────────────────────────── */
 
@@ -373,6 +378,8 @@ export async function setup(ctx: SpindleFrontendContext): Promise<() => void> {
   function refreshFolderNames(): void {
     controller.setFolderNames(mergeFolderNames(store.getNames(), orderedProfiles))
     scheduleSync()
+    // No-op when the popover is closed: `refresh` re-groups only if it is live.
+    inputFolders.refresh()
   }
 
   /* ── 6. Per-row assignment ────────────────────────────────────────────── */
@@ -475,6 +482,9 @@ export async function setup(ctx: SpindleFrontendContext): Promise<() => void> {
     controller.setFolderNames(mergeFolderNames(store.getNames(), orderedProfiles))
     ensureMounted()
     scheduleSync()
+    // The popover renders the same profiles in the same order, so re-group it
+    // when the store changes while it is open.
+    inputFolders.refresh()
   }
 
   const state = ctx.state
