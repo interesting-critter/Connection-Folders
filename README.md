@@ -6,6 +6,8 @@ folders to the Connections tab, making connection profiles easier to sort.
 ## Features
 
 - Group connections into collapsible folders inside the Connections tab.
+- The same folders also appear in the chat composer's connections popover (expand/collapse only —
+  renaming and deleting stay in the drawer tab).
 - Collapse and expand folders to keep long connection lists manageable.
 - Folder state is remembered locally, so your layout survives a page reload.
 - **Frontend-only.** The extension has no backend entry point and requests **zero Spindle permissions**.

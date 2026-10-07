@@ -37,6 +37,7 @@ import { ACTION_STYLES, createNewFolderButton } from './ui/actions'
 import { ASSIGN_STYLES, openFolderAssignModal } from './ui/assign'
 import { CRUD_STYLES, confirmDeleteFolder, promptCreateFolder, promptRenameFolder } from './ui/crud'
 import { RowAffixManager } from './ui/row-affix'
+import { InputFolderController } from './input/popover-folders'
 import type { ConnectionProfile, ScopedDom } from './types'
 
 /** Drawer tab we attach to. Matches the host's own built-in tab id. */
@@ -263,7 +264,30 @@ export async function setup(ctx: SpindleFrontendContext): Promise<() => void> {
     else explicitCollapsed.delete(key)
     persistCollapsed()
     scheduleSync()
+    // Toggling from the drawer header while the composer popover is open must
+    // update it too — one collapse state, two surfaces.
+    inputFolders.refresh()
   }
+
+  /**
+   * Second surface: the transient `connections` popover in the chat composer
+   * bar. Declared here (rather than beside the rest of the lifecycle) because
+   * `applyProfiles` and `refreshFolderNames` already need to refresh it.
+   *
+   * It shares this module's folder names and collapse state, so the popover
+   * and the drawer tab can never disagree about a folder or its open state.
+   * Read-only there — rename/delete stay in the drawer tab.
+   */
+  const inputFolders = new InputFolderController({
+    listProfiles: () => orderedProfiles,
+    folderNames: () => mergeFolderNames(store.getNames(), orderedProfiles),
+    collapsed: () => explicitCollapsed,
+    onToggle: (key) => {
+      toggleCollapsed(key)
+    },
+  })
+  inputFolders.start()
+  disposables.push(() => inputFolders.dispose())
 
   /* ── 5. Folder name CRUD ──────────────────────────────────────────────── */
 
@@ -354,6 +378,8 @@ export async function setup(ctx: SpindleFrontendContext): Promise<() => void> {
   function refreshFolderNames(): void {
     controller.setFolderNames(mergeFolderNames(store.getNames(), orderedProfiles))
     scheduleSync()
+    // No-op when the popover is closed: `refresh` re-groups only if it is live.
+    inputFolders.refresh()
   }
 
   /* ── 6. Per-row assignment ────────────────────────────────────────────── */
@@ -456,6 +482,9 @@ export async function setup(ctx: SpindleFrontendContext): Promise<() => void> {
     controller.setFolderNames(mergeFolderNames(store.getNames(), orderedProfiles))
     ensureMounted()
     scheduleSync()
+    // The popover renders the same profiles in the same order, so re-group it
+    // when the store changes while it is open.
+    inputFolders.refresh()
   }
 
   const state = ctx.state

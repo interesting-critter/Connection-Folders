@@ -66,25 +66,27 @@ describe('resolveOrder', () => {
     expect(resolveOrder(order, profiles).map((p) => p.id)).toEqual(['c', 'a', 'b'])
   })
 
-  it('appends profiles the order never mentions', () => {
+  it('prepends profiles the order never mentions (new connections appear at top)', () => {
     const order: ConnectionsOrder = { llm: ['b'] }
-    expect(resolveOrder(order, profiles).map((p) => p.id)).toEqual(['b', 'a', 'c'])
+    expect(resolveOrder(order, profiles).map((p) => p.id)).toEqual(['a', 'c', 'b'])
   })
 
   it('skips ids with no matching profile', () => {
     const order: ConnectionsOrder = { llm: ['ghost', 'c', 'missing'] }
-    expect(resolveOrder(order, profiles).map((p) => p.id)).toEqual(['c', 'a', 'b'])
+    expect(resolveOrder(order, profiles).map((p) => p.id)).toEqual(['a', 'b', 'c'])
   })
 
   it('ignores a duplicated id rather than emitting the profile twice', () => {
     const order: ConnectionsOrder = { llm: ['a', 'a', 'b'] }
-    expect(resolveOrder(order, profiles).map((p) => p.id)).toEqual(['a', 'b', 'c'])
+    expect(resolveOrder(order, profiles).map((p) => p.id)).toEqual(['c', 'a', 'b'])
   })
 
   it('preserves object identity, not just order', () => {
     const order: ConnectionsOrder = { llm: ['b'] }
     const result = resolveOrder(order, profiles)
-    expect(result[0]).toBe(profiles[1])
+    // With prepend behavior, missing profiles are prepended: ['a', 'c', 'b']
+    // result[0] is the first profile in the input array ('a')
+    expect(result[0]).toBe(profiles[0])
   })
 
   it('does not mutate the input array', () => {
@@ -265,6 +267,7 @@ describe('ConnectionFolderApi.readOrder', () => {
     const { impl } = stubFetch(() => jsonResponse({ llm: ['b'] }))
     const order = await new ConnectionFolderApi(impl).readOrder()
     const profiles = [profile('a'), profile('b')]
-    expect(resolveOrder(order, profiles).map((p) => p.id)).toEqual(['b', 'a'])
+    // With prepend behavior, missing profiles are prepended: ['a', 'b']
+    expect(resolveOrder(order, profiles).map((p) => p.id)).toEqual(['a', 'b'])
   })
 })
